@@ -1,4 +1,4 @@
-<!-- genvibe-memory covers:msg-H2rZmlLdmDqYs1CtM63vCuKX -->
+<!-- genvibe-memory covers:rGqrdobJacGqJRoG -->
 ## What this app is
 MingleNest is a Vite/React web app with Capacitor configuration for Android (`com.minglenest.app`). It combines social profiles, posts, stories, chats, and personalized AI Kids Stories.
 
@@ -10,9 +10,13 @@ MingleNest is a Vite/React web app with Capacitor configuration for Android (`co
 - Profile Delete account opens a confirmation and then a Google Form; this is a deletion request, not confirmed direct account deletion.
 - AI video app-side feature was removed; the previously deployed Veo endpoint could not be removed.
 - Capacitor configuration was added; no production `.aab` build is confirmed.
-- Supabase project: `amljaleklvaawyyqauyl`. Relevant files: `src/App.tsx`, `src/index.css`, `src/supabase.ts`, `capacitor.config.ts`.
-- Updated existing desktop and mobile branding to use the original logo image from `https://ibb.co/xqSfqLVR`; files changed: `public/minglenest-logo.png`, `src/App.tsx`, `src/index.css`.
-- Existing text, buttons, and text fields were made clearly and noticeably bold throughout the app by increasing font weight. Only `src/index.css` changed; wording, font style, size, layout, spacing, colors, navigation, logo, and features remain unchanged.
+- Supabase project: `amljaleklvaawyyqauyl`.
+- Desktop and mobile branding use the original logo image from `https://ibb.co/xqSfqLVR`; files changed: `public/minglenest-logo.png`, `src/App.tsx`, `src/index.css`.
+- Existing text, buttons, and text fields were made noticeably bold by increasing font weight; only `src/index.css` changed.
+- Chat uses the restored Supabase session and same user ID as the signed-in profile/social features; no separate Chat registration. Private one-to-one text/emoji messaging and live updates use Supabase.
+- Voice messages support recording, timing, canceling, sending, authenticated Storage download/playback, pause, and replay. Own-message deletion removes its database row, attempts audio removal, and notifies the recipient to reload.
+- Chat security work includes `src/privateChat.ts`, `src/VoicePlayer.tsx`, `src/App.tsx`, `supabase/migrations/harden_private_chat_voice_permissions.sql`, and `supabase/migrations/chat_directory_realtime.sql`. Changes also include `src/supabase.ts`, `src/authCallback.ts`, and `docs/minglenest-auth-android.md`.
+- Native verification return uses `com.minglenest.app://auth/callback`. `@capacitor/app@^8.0.0` was added. Device testing remains unconfirmed.
 
 ## Design
 Lavender background, royal-purple actions, blue and green highlights, charcoal text, and white surfaces. App name: **MingleNest**. Logo is reported updated using the original image.
@@ -21,12 +25,15 @@ Lavender background, royal-purple actions, blue and green highlights, charcoal t
 Vite + React + TypeScript web app with Capacitor configuration; not a React Native/Expo project. Supabase is used for backend/storage and the Gemini Edge Function.
 
 ## User preferences & rules
-- Preserve the existing app, features, screens, data, navigation, branding, and package ID. Do not rebuild or break existing functionality.
-- Use the exact supplied logo artwork; do not recreate, redesign, crop, stretch, recolor, or modify it.
-- Make existing text clearly and noticeably bold by increasing font weight only. Keep wording, font style, size, layout, spacing, colors, navigation, logo, features, and everything else unchanged.
-- Do not redesign or change unrelated features.
+- Continue working on the existing MingleNest app; do not create a new app or rebuild from scratch.
+- Preserve existing features, screens, data, navigation, branding, package ID, logo, colors, typography, and bottom navigation. Do not redesign the app or break functionality.
+- Keep the exact supplied logo artwork unchanged.
+- Make existing text noticeably bold by increasing font weight only; preserve wording, font style, size, layout, spacing, colors, navigation, logo, and features.
+- Do not create fake/demo voice messaging.
 
 ## Open issues & next ideas
+- Test live text and real voice messaging on devices; verify microphone permissions, uploads, playback, and deletion.
 - Confirm Supabase table grants/policies and test uploads, reads, and deletes.
-- Real chat media and production calling were discussed but not implemented; reliable background incoming calls require a provider and native/push integration.
+- Configure and verify production authentication/verification redirects and test-account setup.
+- Real voice calling and reliable background incoming calls require a provider and native/push integration.
 - Android `.aab` packaging has not been confirmed or built.
