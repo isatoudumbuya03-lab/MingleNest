@@ -1,1 +1,179 @@
 
+import React, { useEffect, useRef, useState } from 'react'
+import {
+  ArrowLeft, ArrowRight, Bell, BookHeart, Bookmark, Camera, Check, ChevronLeft, ChevronRight,
+  CirclePlus, Ellipsis, Heart, Home, ImagePlus, Mail, MessageCircle, Moon, Pencil, Plus,
+  Search, Send, Mic, Square, Play, Pause, Settings2, Share2, Sparkles, Trash2, Flag,
+  WandSparkles, X, Languages, UserPlus, Users, Globe, CheckCheck, Award
+} from 'lucide-react'
+import { generateKidsStory } from './kidsStory'
+import {
+  getPrivateConversation, listChatContacts, readPrivateMessages,
+  removePrivateMessage, sendPrivateText, sendPrivateVoice, type ChatContact, type PrivateMessage
+} from './privateChat'
+import { confirmationRedirect, listenForAuthCallback } from './authCallback'
+import type { User } from '@supabase/supabase-js'
+import VoicePlayer from './VoicePlayer'
+import { supabase, PROFILE_BUCKET, deviceId, resizeImage, blobToDataUrl } from './supabase'
+
+type Profile = { name: string; handle: string; bio: string; avatarUrl: string; coverUrl: string }
+type Comment = { id: string; userId: string; author: string; handle: string; avatar: string; content: string; createdAt: string }
+type Language = 'en' | 'fr' | 'es' | 'de' | 'pt' | 'it' | 'ar'
+
+const LANGUAGES: Record<Language, string> = {
+  en: 'English', fr: 'Français', es: 'Español', de: 'Deutsch', pt: 'Português', it: 'Italiano', ar: 'العربية'
+}
+
+const UI_TEXT: Record<Language, Record<string, string>> = {
+  en: {
+    home: 'Home', stories: 'Stories', kids: 'Kids Stories', chats: 'Chats', profile: 'Profile',
+    findUsers: 'Find Users', searchUsers: 'Search users...', settings: 'Settings', voice: 'Voice message',
+    recording: 'Recording...', preview: 'Preview', send: 'Send', discard: 'Discard', pause: 'Pause',
+    resume: 'Resume', like: 'Like', unlike: 'Unlike', comment: 'Comment', delete: 'Delete',
+    typeMessage: 'Write a message...', certification: 'Verification Certificate', activeCert: 'Account Active & Certified'
+  },
+  fr: {
+    home: 'Accueil', stories: 'Histoires', kids: 'Histoires enfants', chats: 'Discussions', profile: 'Profil',
+    findUsers: 'Trouver des utilisateurs', searchUsers: 'Rechercher des utilisateurs...', settings: 'Paramètres',
+    voice: 'Message vocal', recording: 'Enregistrement...', preview: 'Aperçu', send: 'Envoyer', discard: 'Supprimer',
+    pause: 'Pause', resume: 'Reprendre', like: 'J\'aime', unlike: 'Je n\'aime plus', comment: 'Commenter',
+    delete: 'Supprimer', typeMessage: 'Écrire un message...', certification: 'Certificat de vérification', activeCert: 'Compte actif et certifié'
+  },
+  es: {
+    home: 'Inicio', stories: 'Historias', kids: 'Historias infantiles', chats: 'Chats', profile: 'Perfil',
+    findUsers: 'Buscar usuarios', searchUsers: 'Buscar usuarios...', settings: 'Ajustes', voice: 'Mensaje de voz',
+    recording: 'Grabando...', preview: 'Vista previa', send: 'Enviar', discard: 'Descartar', pause: 'Pausa',
+    resume: 'Reanudar', like: 'Me gusta', unlike: 'Ya no me gusta', comment: 'Comentar', delete: 'Eliminar',
+    typeMessage: 'Escribe un mensaje...', certification: 'Certificado de verificación', activeCert: 'Cuenta activa y certificada'
+  },
+  de: {
+    home: 'Start', stories: 'Stories', kids: 'Kinderstories', chats: 'Chats', profile: 'Profil',
+    findUsers: 'Nutzer finden', searchUsers: 'Nutzer suchen...', settings: 'Einstellungen', voice: 'Sprachnachricht',
+    recording: 'Aufnahme...', preview: 'Vorschau', send: 'Senden', discard: 'Verwerfen', pause: 'Pause',
+    resume: 'Fortsetzen', like: 'Gefällt mir', unlike: 'Gefällt mir nicht mehr', comment: 'Kommentieren',
+    delete: 'Löschen', typeMessage: 'Nachricht schreiben...', certification: 'Bestätigungszertifikat', activeCert: 'Konto aktiv und zertifiziert'
+  },
+  pt: {
+    home: 'Início', stories: 'Stories', kids: 'Histórias infantis', chats: 'Conversas', profile: 'Perfil',
+    findUsers: 'Encontrar usuários', searchUsers: 'Buscar usuários...', settings: 'Configurações', voice: 'Mensagem de voz',
+    recording: 'Gravando...', preview: 'Prévia', send: 'Enviar', discard: 'Descartar', pause: 'Pausar',
+    resume: 'Retomar', like: 'Curtir', unlike: 'Descurtir', comment: 'Comentar', delete: 'Excluir',
+    typeMessage: 'Escreva uma mensagem...', certification: 'Certificado de verificação', activeCert: 'Conta ativa e certificada'
+  },
+  it: {
+    home: 'Home', stories: 'Storie', kids: 'Storie per bambini', chats: 'Chat', profile: 'Profilo',
+    findUsers: 'Trova utenti', searchUsers: 'Cerca utenti...', settings: 'Impostazioni', voice: 'Messaggio vocale',
+    recording: 'Registrazione...', preview: 'Anteprima', send: 'Invia', discard: 'Elimina', pause: 'Pausa',
+    resume: 'Riprendi', like: 'Mi piace', unlike: 'Non mi piace più', comment: 'Commenta', delete: 'Elimina',
+    typeMessage: 'Scrivi un messaggio...', certification: 'Certificato di verifica', activeCert: 'Account attivo e certificato'
+  },
+  ar: {
+    home: 'الرئيسية', stories: 'قصص', kids: 'قصص الأطفال', chats: 'محادثات', profile: 'الملف الشخصي',
+    findUsers: 'البحث عن مستخدمين', searchUsers: 'البحث عن مستخدمين...', settings: 'الإعدادات', voice: 'رسالة صوتية',
+    recording: 'جاري التسجيل...', preview: 'معاينة', send: 'إرسال', discard: 'إلغاء', pause: 'إيقاف مؤقت',
+    resume: 'استئناف', like: 'إعجاب', unlike: 'إلغاء الإعجاب', comment: 'تعليق', delete: 'حذف',
+    typeMessage: 'اكتب رسالة...', certification: 'شهادة التوثيق', activeCert: 'الحساب نشط وموثق'
+  }
+}
+
+type Tab = 'home' | 'stories' | 'create' | 'chats' | 'profile'
+type Post = { id: number; cloudId?: string; author: string; handle: string; avatar: string; time: string; text: string; postImage?: string; likes: number; liked: boolean; saved: boolean; commentsCount: number }
+type ChatMessage = { id: string; text: string; time: string; sender: string; voiceUrl?: string; voiceDuration?: number }
+
+export default function App() {
+  const [tab, setTab] = useState<Tab>('home')
+  const [currentLang, setCurrentLang] = useState<Language>('en')
+  const [showLanguageModal, setShowLanguageModal] = useState<boolean>(false)
+  
+  const [profile, setProfile] = useState<Profile>({ name: 'User', handle: '@user', bio: '', avatarUrl: '', coverUrl: '' })
+  const [posts, setPosts] = useState<Post[]>([])
+  const [activeChatContact, setActiveChatContact] = useState<ChatContact | null>(null)
+  const [chatInput, setChatInput] = useState('')
+
+  const t = (key: string): string => UI_TEXT[currentLang]?.[key] || UI_TEXT['en'][key] || key
+
+  return (
+    <div className={`min-h-screen bg-gray-50 flex flex-col justify-between font-sans ${currentLang === 'ar' ? 'rtl' : 'ltr'}`}>
+      <header className="px-4 py-3 bg-white border-b border-gray-100 flex items-center justify-between sticky top-0 z-10">
+        <h1 className="text-xl font-bold text-purple-900">MingleNest</h1>
+        <div className="flex items-center gap-3 text-gray-600">
+          <button onClick={() => setShowLanguageModal(true)} className="p-1.5 hover:bg-gray-100 rounded-full flex items-center gap-1">
+            <Globe className="w-5 h-5 text-purple-700" />
+            <span className="text-xs uppercase font-bold text-purple-700">{currentLang}</span>
+          </button>
+        </div>
+      </header>
+
+      <main className="flex-1 p-4 pb-20">
+        {tab === 'home' && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-bold text-gray-800">{t('home')}</h2>
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+              <p className="text-sm text-gray-700 font-medium">A little sunshine, good friends, and nowhere else to be. ☀️</p>
+            </div>
+          </div>
+        )}
+
+        {tab === 'profile' && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-bold text-gray-800">{t('profile')}</h2>
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3">
+              <Award className="w-6 h-6 text-purple-600 flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-gray-800">{t('certification')}</p>
+                <p className="text-xs text-gray-500">{t('activeCert')}</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+
+      {showLanguageModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-5 shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-gray-900 text-lg">{t('settings')}</h3>
+              <button onClick={() => setShowLanguageModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-2 max-h-60 overflow-y-auto">
+              {(Object.keys(LANGUAGES) as Language[]).map((code) => (
+                <button
+                  key={code}
+                  onClick={() => {
+                    setCurrentLang(code)
+                    setShowLanguageModal(false)
+                  }}
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-gray-100 hover:bg-purple-50 text-left transition-colors"
+                >
+                  <span className="font-medium text-gray-800">{LANGUAGES[code]}</span>
+                  {currentLang === code && <Check className="w-4 h-4 text-purple-600" />}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-2 flex justify-around items-center z-40">
+        <button onClick={() => setTab('home')} className={`flex flex-col items-center gap-0.5 ${tab === 'home' ? 'text-purple-700 font-semibold' : 'text-gray-400'}`}>
+          <Home className="w-5 h-5" />
+          <span className="text-xs">{t('home')}</span>
+        </button>
+        <button onClick={() => setTab('stories')} className={`flex flex-col items-center gap-0.5 ${tab === 'stories' ? 'text-purple-700 font-semibold' : 'text-gray-400'}`}>
+          <BookHeart className="w-5 h-5" />
+          <span className="text-xs">{t('stories')}</span>
+        </button>
+        <button onClick={() => setTab('chats')} className={`flex flex-col items-center gap-0.5 ${tab === 'chats' ? 'text-purple-700 font-semibold' : 'text-gray-400'}`}>
+          <MessageCircle className="w-5 h-5" />
+          <span className="text-xs">{t('chats')}</span>
+        </button>
+        <button onClick={() => setTab('profile')} className={`flex flex-col items-center gap-0.5 ${tab === 'profile' ? 'text-purple-700 font-semibold' : 'text-gray-400'}`}>
+          <User className="w-5 h-5" />
+          <span className="text-xs">{t('profile')}</span>
+        </button>
+      </nav>
+    </div>
+  )
+}
