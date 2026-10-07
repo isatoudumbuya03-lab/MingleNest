@@ -34,6 +34,9 @@ jobs:
       - name: Accept Android SDK Licenses
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
+      - name: Add Android Platform if Missing
+        run: npx cap add android || true
+
       - name: Sync Capacitor Android Project
         run: npx cap sync android
 
